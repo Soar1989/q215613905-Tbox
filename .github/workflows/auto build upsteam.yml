@@ -45,7 +45,7 @@ jobs:
           sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC'       ./gradle.properties
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
           
-        - name: add py
+    - name: add py
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
