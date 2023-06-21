@@ -45,10 +45,15 @@ jobs:
           sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC'       ./gradle.properties
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
           
+          - name: add py
+        if: ${{ env.commit }}
+        working-directory: TVBoxOSC
+        run: |
+          
           wget --no-check-certificate -qO- "https://raw.githubusercontent.com/UndCover/PyramidStore/main/aar/pyramid-1011.aar" -O app/libs/pyramid.aar
-#sed -i "/thunder.jar/a\    implementation files('libs@pyramid.aar')" app/build.gradle
-#sed -i 's#@#\\#g'              app/build.gradle
-#sed -i 's#pyramid#\\pyramid#g' app/build.gradle
+sed -i "/thunder.jar/a\    implementation files('libs@pyramid.aar')" app/build.gradle
+sed -i 's#@#\\#g'              app/build.gradle
+sed -i 's#pyramid#\\pyramid#g' app/build.gradle
 sed -i -e "-keep public class com.undcover.freedom.pyramid.** { *; }" app/proguard-rules.pro
 sed -i -e "-dontwarn com.undcover.freedom.pyramid.**"                 app/proguard-rules.pro
 sed -i -e "-keep public class com.chaquo.python.** { *; }"            app/proguard-rules.pro
