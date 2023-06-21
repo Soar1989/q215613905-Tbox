@@ -15,17 +15,15 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
       - name: Check New Commit
         run: |
-          upstreamCode=https://github.com/chengxue2020/q215613905-Tbox
+          upstreamCode=https://github.com/q215613905/TVBoxOS
           echo "upstreamCode=$upstreamCode" >> $GITHUB_ENV
-          commit=$(curl -sL $upstreamCode/commits/main |grep -o '/chengxue2020/q215613905-Tbox/commit/[a-z0-9]\+' |head -1 | cut -d\/ -f5)
+          commit=$(curl -sL $upstreamCode/commits/main |grep -o '/q215613905/TVBoxOS/commit/[a-z0-9]\+' |head -1 | cut -d\/ -f5)
           if ! git log --oneline |grep -q "$commit"; then
             echo "commit=$commit" >> $GITHUB_ENV
             echo "commitS=${commit:0:7}" >> $GITHUB_ENV
           fi
-
       - name: Checkout Source Code and Zip
         if: ${{ env.commit }}
         run: |
@@ -34,7 +32,6 @@ jobs:
           git checkout ${{ env.commit }}
           echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd ${{ env.commitS }} -1)" >> $GITHUB_ENV
           zip -q -x ".git/*" -r ${{ env.commitS }}-source.zip .
-
       - name: Release Apk Sign
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
@@ -49,7 +46,28 @@ jobs:
           sed -i '$a\RELEASE_KEY_ALIAS=TVBoxOSC'            ./gradle.properties
           sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC'       ./gradle.properties
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
-
+          
+    - name: add py
+        if: ${{ env.commit }}
+        working-directory: TVBoxOSC
+        run: |
+         wget --no-check-certificate -qO- "https://raw.githubusercontent.com/UndCover/PyramidStore/main/aar/pyramid-1011.aar" -O app/libs/pyramid.aar
+sed -i "/thunder.jar/a\    implementation files('libs@pyramid.aar')" app/build.gradle
+sed -i 's#@#\\#g'              app/build.gradle
+sed -i 's#pyramid#\\pyramid#g' app/build.gradle
+sed -i -e "-keep public class com.undcover.freedom.pyramid.** { *; }" app/proguard-rules.pro
+sed -i -e "-dontwarn com.undcover.freedom.pyramid.**"                 app/proguard-rules.pro
+sed -i -e "-keep public class com.chaquo.python.** { *; }"            app/proguard-rules.pro
+sed -i -e "-dontwarn com.chaquo.python.**"                            app/proguard-rules.pro
+sed -i '/import com.orhanobut.hawk.Hawk;/a\import com.undcover.freedom.pyramid.PythonLoader;' app/src/main/java/com/github/tvbox/osc/base/App.java
+sed -i '/import com.orhanobut.hawk.Hawk;/a\import com.github.catvod.crawler.SpiderNull;'      app/src/main/java/com/github/tvbox/osc/base/App.java
+sed -i '/PlayerHelper.init/a\        PythonLoader.getInstance().setApplication(this);'        app/src/main/java/com/github/tvbox/osc/base/App.java
+sed -i '/import android.util.Base64;/a\import com.github.catvod.crawler.SpiderNull;'          app/src/main/java/com/github/tvbox/osc/api/ApiConfig.java
+sed -i '/import android.util.Base64;/a\import com.undcover.freedom.pyramid.PythonLoader;'     app/src/main/java/com/github/tvbox/osc/api/ApiConfig.java
+sed -i '/private void parseJson(String apiUrl, String jsonStr)/a\        PythonLoader.getInstance().setConfig(jsonStr);' app/src/main/java/com/github/tvbox/osc/api/ApiConfig.java
+sed -i '/public Spider getCSP(SourceBean sourceBean)/a\        if (sourceBean.getApi().startsWith(\"py_\")) {\n        try {\n            return PythonLoader.getInstance().getSpider(sourceBean.getKey(), sourceBean.getExt());\n        } catch (Exception e) {\n            e.printStackTrace();\n            return new SpiderNull();\n        }\n    }' app/src/main/java/com/github/tvbox/osc/api/ApiConfig.java
+sed -i '/public Object\[\] proxyLoca/a\    try {\n        if(param.containsKey(\"api\")){\n            String doStr = param.get(\"do\").toString();\n            if(doStr.equals(\"ck\"))\n                return PythonLoader.getInstance().proxyLocal(\"\",\"\",param);\n            SourceBean sourceBean = ApiConfig.get().getSource(doStr);\n            return PythonLoader.getInstance().proxyLocal(sourceBean.getKey(),sourceBean.getExt(),param);\n        }else{\n            String doStr = param.get(\"do\").toString();\n            if(doStr.equals(\"live\")) return PythonLoader.getInstance().proxyLocal(\"\",\"\",param);\n        }\n    } catch (Exception e) {\n        e.printStackTrace();\n    }\n' app/src/main/java/com/github/tvbox/osc/api/ApiConfig.java              return PythonLoader.getInstance().proxyLocal(\"\",\"\",param);\n            SourceBean sourceBean = ApiConfig.get().getSource(doStr);\n            return PythonLoader.getInstance().proxyLocal(sourceBean.getKey(),sourceBean.getExt(),param);\n        }else{\n            String doStr = param.get(\"do\").toString();\n            if(doStr.equals(\"live\")) return PythonLoader.getInstance().proxyLocal(\"\",\"\",param);\n        }\n    } catch (Exception e) {\n        e.printStackTrace();\n    }\n' app/src/main/java/com/github/tvbox/osc/api/ApiConfig.java
+          
       - name: Build Release With Gradle
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
@@ -71,20 +89,12 @@ jobs:
           rm -rf apk/
           mkdir -p apk/
           for file in `find ~ -name "*release*.apk" -print`; do
-            mv "$file" apk/TVBox_Frank_${{ env.tag }}_Release.apk
+            mv "$file" apk/TVBox_q215613905_${{ env.tag }}_Release.apk
           done
           for file in `find ~ -name "*debug*.apk" -print`; do
-            mv "$file" apk/TVBox_Frank_${{ env.tag }}_Debug.apk
+            mv "$file" apk/TVBox_q215613905_${{ env.tag }}_Debug.apk
           done
-
-      - name: Upload App To Artifact
-        uses: actions/upload-artifact@v3
-        if: ${{ env.commit }}
-        with:
-          name: TVBox_Frank_Release_and_Debug
-          path: TVBoxOSC/apk/*
-
-      - name: Release and Upload Assets(release area)
+      - name: Release and Upload Assets
         uses: softprops/action-gh-release@v1
         if: ${{ env.commit }}
         with:
@@ -95,4 +105,5 @@ jobs:
             TVBoxOSC/apk/*
             TVBoxOSC/${{ env.commitS }}-source.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MYTEST }}
+
